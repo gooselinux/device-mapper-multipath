@@ -1,0 +1,16 @@
+---
+ multipathd/main.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: multipath-tools/multipathd/main.c
+===================================================================
+--- multipath-tools.orig/multipathd/main.c
++++ multipath-tools/multipathd/main.c
+@@ -1242,6 +1242,7 @@ reconfigure (struct vectors * vecs)
+ 		conf->checkint = DEFAULT_CHECKINT;
+ 		conf->max_checkint = MAX_CHECKINT(conf->checkint);
+ 	}
++	conf->daemon = 1;
+ 	configure(vecs, 1);
+ 	free_config(old);
+ 	return 0;

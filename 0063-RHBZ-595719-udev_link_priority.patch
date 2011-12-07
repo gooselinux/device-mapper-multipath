@@ -1,0 +1,19 @@
+---
+ multipath/multipath.rules |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+Index: multipath-tools/multipath/multipath.rules
+===================================================================
+--- multipath-tools.orig/multipath/multipath.rules
++++ multipath-tools/multipath/multipath.rules
+@@ -16,8 +16,9 @@ ENV{DM_MULTIPATH_DEVICE_PATH}=="1", ENV{
+ RUN+="socket:/org/kernel/dm/multipath_event"
+ KERNEL!="dm-*", GOTO="end_mpath"
+ ACTION!="change", GOTO="end_mpath"
+-ENV{DM_SUSPENDED}=="1", GOTO="end_mpath"
++ENV{DM_UUID}=="mpath-?*|part[0-9]*-mpath-?*", OPTIONS+="link_priority=10"
+ ENV{DM_UUID}!="mpath-?*", GOTO="end_mpath"
++ENV{DM_SUSPENDED}=="1", GOTO="end_mpath"
+ ENV{DM_ACTION}=="PATH_FAILED", GOTO="end_mpath"
+ RUN+="$env{MPATH_SBIN_PATH}/kpartx -a -p p $tempnode"
+ LABEL="end_mpath"

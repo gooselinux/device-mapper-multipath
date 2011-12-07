@@ -1,0 +1,228 @@
+---
+ multipath/main.c    |    4 -
+ multipath/mpathconf |  123 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 121 insertions(+), 6 deletions(-)
+
+Index: multipath-tools/multipath/mpathconf
+===================================================================
+--- multipath-tools.orig/multipath/mpathconf
++++ multipath-tools/multipath/mpathconf
+@@ -27,10 +27,13 @@ function usage
+ 	echo "usage: $0 <command>"
+ 	echo ""
+ 	echo "Commands:"
+-	echo "Enable: --enable [--user_friendly_names <y|n>] [--find_multipaths <y|n>"
++	echo "Enable: --enable "
+ 	echo "Disable: --disable"
+-	echo "Set user_friendly_names: --user_friendly_names <y|n>"
+-	echo "Set find_multipaths: --find_multipaths <y|n>"
++	echo "Set user_friendly_names (Default n): --user_friendly_names <y|n>"
++	echo "Set find_multipaths (Default n): --find_multipaths <y|n>"
++	echo "Load the dm-multipath modules on enable (Default y): --with_module <y|n>"
++	echo "start/stop/reload multipathd (Default n): --with_multipathd <y|n>"
++	echo "chkconfig on/off multipathd (Default y): --with_chkconfig <y|n>"
+ 	echo ""
+ }
+ 
+@@ -64,6 +67,33 @@ function parse_args
+ 					exit 1
+ 				fi
+ 				;;
++			--with_module)
++				if [ -n "$2" ]; then
++					MODULE=$2
++					shift 2
++				else
++					usage
++					exit 1
++				fi
++				;;
++			--with_multipathd)
++				if [ -n "$2" ]; then
++					MULTIPATHD=$2
++					shift 2
++				else
++					usage
++					exit 1
++				fi
++				;;
++			--with_chkconfig)
++				if [ -n "$2" ]; then
++					CHKCONFIG=$2
++					shift 2
++				else
++					usage
++					exit 1
++				fi
++				;;
+ 			*)
+ 				usage
+ 				exit
+@@ -73,10 +103,11 @@ function parse_args
+ 
+ function validate_args
+ {
+-	if [ "$ENABLE" = "0" ] && [ -n "$FRIENDLY" -o -n "$FIND" ]; then
++	if [ "$ENABLE" = "0" ] && [ -n "$FRIENDLY" -o -n "$FIND" -o -n "$MODULE" ]; then
+ 		echo "ignoring extra parameters on disable"
+ 		FRIENDLY=""
+ 		FIND=""
++		MODULE=""
+ 	fi
+ 	if [ -n "$FRIENDLY" ] && [ "$FRIENDLY" != "y" -a "$FRIENDLY" != "n" ]; then
+ 		echo "--user_friendly_names must be either 'y' or 'n'"
+@@ -89,6 +120,18 @@ function validate_args
+ 	if [ -z "$ENABLE" -a -z "$FIND" -a -z "$FRIENDLY" ]; then
+ 		DISPLAY=1
+ 	fi
++	if [ -n "$MODULE" ] && [ "$MODULE" != "y" -a "$MODULE" != "n" ]; then
++		echo "--with_module must be either 'y' or 'n'"
++		exit 1
++	fi
++	if [ -n "$MULTIPATHD" ] && [ "$MULTIPATHD" != "y" -a "$MULTIPATHD" != "n" ]; then
++		echo "--with_multipathd must be either 'y' or 'n'"
++		exit 1
++	fi
++	if [ -n "$CHKCONFIG" ] && [ "$CHKCONFIG" != "y" -a "$CHKCONFIG" != "n" ]; then
++		echo "--with_chkconfig must be either 'y' or 'n'"
++		exit 1
++	fi
+ }
+ 
+ umask 0077
+@@ -119,6 +162,34 @@ if grep -q "^defaults[[:space:]]*{" $TMP
+ 	HAVE_DEFAULTS=1
+ fi
+ 
++if [ -z "$MODULE" -o "$MODULE" = "y" ]; then
++	if lsmod | grep -q "dm_multipath" ; then
++		HAVE_MODULE=1
++	else
++		HAVE_MODULE=0
++	fi
++fi
++
++if [ "$MULTIPATHD" = "y" ]; then
++	if service multipathd status > /dev/null ; then
++		HAVE_MULTIPATHD=1
++	else
++		HAVE_MULTIPATHD=0
++	fi
++fi
++
++if [ -z "$CHKCONFIG" -o "$CHKCONFIG" = "y" ]; then
++	chkconfig --list multipathd > /dev/null 2>&1
++	if [ $? != 0 ]; then
++		chkconfig --add multipathd
++	fi
++	if chkconfig --list multipathd | grep -q "on" ; then
++		HAVE_CHKCONFIG=1
++	else
++		HAVE_CHKCONFIG=0
++	fi
++fi
++
+ if [ "$HAVE_BLACKLIST" = "1" ]; then
+ 	if sed -n '/^blacklist[[:space:]]*{/,/^}/ p' $TMPFILE | grep -q "^[[:space:]]*devnode \"\.\?\*\"" ; then
+ 		HAVE_DISABLE=1
+@@ -156,6 +227,23 @@ if [ -n "$DISPLAY" ]; then
+ 	else
+ 		echo "user_friendly_names is enabled"
+ 	fi
++	if [ -n "$HAVE_MODULE" ]; then
++		if [ "$HAVE_MODULE" = 1 ]; then
++			echo "dm_multipath module is loaded"
++		else
++			echo "dm_multipath module is not loaded"
++		fi
++	fi
++	if [ -n "$HAVE_MULTIPATHD" ]; then
++		service multipathd status
++	fi
++	if [ -n "$HAVE_CHKCONFIG" ]; then
++		if [ "$HAVE_CHKCONFIG" = 1 ]; then
++			echo "multipathd is chkconfiged on"
++		else
++			echo "multipathd is chkconfiged off"
++		fi
++	fi
+ 	exit 0
+ fi
+ 
+@@ -192,28 +280,34 @@ fi
+ if [ "$FIND" = "n" ]; then
+ 	if [ "$HAVE_FIND" = 1 ]; then
+ 		sed -i '/^defaults[[:space:]]*{/,/^}/ s/^[[:space:]]*find_multipaths[[:space:]]*\(yes\|1\)/	find_multipaths no/' $TMPFILE
++		CHANGED_CONFIG=1
+ 	fi
+ elif [ "$FIND" = "y" ]; then
+ 	if [ -z "$HAVE_FIND" ]; then
+ 		sed -i '/^defaults[[:space:]]*{/ a\
+ 	find_multipaths yes
+ ' $TMPFILE
++		CHANGED_CONFIG=1
+ 	elif [ "$HAVE_FIND" = 0 ]; then
+ 		sed -i '/^defaults[[:space:]]*{/,/^}/ s/^[[:space:]]*find_multipaths[[:space:]]*\(no\|0\)/	find_multipaths yes/' $TMPFILE
++		CHANGED_CONFIG=1
+ 	fi
+ fi
+ 
+ if [ "$FRIENDLY" = "n" ]; then
+ 	if [ "$HAVE_FRIENDLY" = 1 ]; then
+ 		sed -i '/^defaults[[:space:]]*{/,/^}/ s/^[[:space:]]*user_friendly_names[[:space:]]*\(yes\|1\)/	user_friendly_names no/' $TMPFILE
++		CHANGED_CONFIG=1
+ 	fi
+ elif [ "$FRIENDLY" = "y" ]; then
+ 	if [ -z "$HAVE_FRIENDLY" ]; then
+ 		sed -i '/^defaults[[:space:]]*{/ a\
+ 	user_friendly_names yes
+ ' $TMPFILE
++		CHANGED_CONFIG=1
+ 	elif [ "$HAVE_FRIENDLY" = 0 ]; then
+ 		sed -i '/^defaults[[:space:]]*{/,/^}/ s/^[[:space:]]*user_friendly_names[[:space:]]*\(no\|0\)/	user_friendly_names yes/' $TMPFILE
++		CHANGED_CONFIG=1
+ 	fi
+ fi
+ 
+@@ -232,3 +326,24 @@ if [ $? != 0 ]; then
+ fi
+ 
+ rm -f $TMPFILE
++
++if [ "$ENABLE" = 1 ]; then
++	if [ "$HAVE_MODULE" = 0 ]; then
++		modprobe dm_multipath
++	fi
++	if [ "$HAVE_MULTIPATHD" = 0 ]; then
++		service multipathd start
++	fi
++	if [ "$HAVE_CHKCONFIG" = 0 ]; then
++		chkconfig multipathd on
++	fi
++elif [ "$ENABLE" = 0 ]; then
++	if [ "$HAVE_MULTIPATHD" = 1 ]; then
++		service multipathd stop
++	fi
++	if [ "$HAVE_CHKCONFIG" = 1 ]; then
++		chkconfig multipathd off
++	fi
++elif [ -n "$CHANGED_CONFIG" -a "$HAVE_MULTIPATHD" = 1 ]; then
++	service multipathd reload
++fi
+Index: multipath-tools/multipath/main.c
+===================================================================
+--- multipath-tools.orig/multipath/main.c
++++ multipath-tools/multipath/main.c
+@@ -345,10 +345,10 @@ main (int argc, char *argv[])
+ 		exit(1);
+ 	}
+ 
+-	if (dm_prereq())
++	if (load_config(DEFAULT_CONFIGFILE))
+ 		exit(1);
+ 
+-	if (load_config(DEFAULT_CONFIGFILE))
++	if (dm_prereq())
+ 		exit(1);
+ 
+ 	if (init_checkers()) {

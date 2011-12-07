@@ -1,0 +1,46 @@
+---
+ libmultipath/checkers.c  |    5 +++++
+ libmultipath/checkers.h  |    1 +
+ libmultipath/discovery.c |    1 +
+ 3 files changed, 7 insertions(+)
+
+Index: multipath-tools/libmultipath/discovery.c
+===================================================================
+--- multipath-tools.orig/libmultipath/discovery.c
++++ multipath-tools/libmultipath/discovery.c
+@@ -807,6 +807,7 @@ get_state (struct path * pp, int daemon)
+ 			return PATH_UNCHECKED;
+ 		}
+ 	}
++	checker_clear_message(c);
+ 	if (path_offline(pp)) {
+ 		condlog(3, "%s: path offline", pp->dev);
+ 		return PATH_DOWN;
+Index: multipath-tools/libmultipath/checkers.c
+===================================================================
+--- multipath-tools.orig/libmultipath/checkers.c
++++ multipath-tools/libmultipath/checkers.c
+@@ -183,6 +183,11 @@ char * checker_message (struct checker *
+ 	return c->message;
+ }
+ 
++void checker_clear_message (struct checker *c)
++{
++	c->message[0] = '\0';
++}
++
+ void checker_get (struct checker * dst, char * name)
+ {
+ 	struct checker * src = checker_lookup(name);
+Index: multipath-tools/libmultipath/checkers.h
+===================================================================
+--- multipath-tools.orig/libmultipath/checkers.h
++++ multipath-tools/libmultipath/checkers.h
+@@ -117,6 +117,7 @@ int checker_check (struct checker *);
+ int checker_selected (struct checker *);
+ char * checker_name (struct checker *);
+ char * checker_message (struct checker *);
++void checker_clear_message (struct checker *c);
+ void checker_get (struct checker *, char *);
+ 
+ #endif /* _CHECKERS_H */

@@ -1,0 +1,17 @@
+---
+ libmultipath/discovery.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: multipath-tools/libmultipath/discovery.c
+===================================================================
+--- multipath-tools.orig/libmultipath/discovery.c
++++ multipath-tools/libmultipath/discovery.c
+@@ -258,7 +258,7 @@ sysfs_set_scsi_tmo (struct multipath *mp
+ 				sprintf(value, "off");
+ 			else
+ 				snprintf(value, 11, "%u", mpp->fast_io_fail);
+-			if (sysfs_attr_set_value(attr_path, "fast_io_fail",
++			if (sysfs_attr_set_value(attr_path, "fast_io_fail_tmo",
+ 						 value))
+ 				return 1;
+ 		}

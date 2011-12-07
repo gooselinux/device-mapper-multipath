@@ -1,0 +1,66 @@
+---
+ libmultipath/dmparser.c |   37 ++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 36 insertions(+), 1 deletion(-)
+
+Index: multipath-tools/libmultipath/dmparser.c
+===================================================================
+--- multipath-tools.orig/libmultipath/dmparser.c
++++ multipath-tools/libmultipath/dmparser.c
+@@ -6,6 +6,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <ctype.h>
+ 
+ #include "checkers.h"
+ #include "vector.h"
+@@ -44,6 +45,40 @@ merge_words (char ** dst, char * word, i
+ 	return 0;
+ }
+ 
++char *
++assemble_features (struct multipath *mp)
++{
++	static char features[PARAMS_SIZE];
++	unsigned int nr_features;
++	char *ptr;
++
++	if (!conf->daemon || mp->no_path_retry == NO_PATH_RETRY_UNDEF ||
++	    mp->no_path_retry == NO_PATH_RETRY_FAIL ||
++	    strstr(mp->features, "queue_if_no_path"))
++		return mp->features;
++	if (18 > PARAMS_SIZE - 1 - strlen(mp->features)) {
++		fprintf(stderr, "not enough size to modify features\n");
++		return mp->features;
++	}
++	if (sscanf(mp->features, "%u", &nr_features) != 1) {
++		fprintf(stderr, "can't find number of features\n");
++		return mp->features;
++	}
++	ptr = mp->features;
++	while (isspace(*ptr))
++		ptr++;
++	if (*ptr == '\0') {
++		fprintf(stderr, "features is empty\n");
++		return mp->features;
++	}
++	while(*ptr != '\0' && !isspace(*ptr))
++		ptr++;
++
++	snprintf(features, PARAMS_SIZE, "%u%s queue_if_no_path",
++		 nr_features + 1, ptr);
++	return features;
++}
++
+ /*
+  * Transforms the path group vector into a proper device map string
+  */
+@@ -62,7 +97,7 @@ assemble_map (struct multipath * mp)
+ 	freechar = sizeof(mp->params);
+ 
+ 	shift = snprintf(p, freechar, "%s %s %i %i",
+-			 mp->features, mp->hwhandler,
++			 assemble_features(mp), mp->hwhandler,
+ 			 VECTOR_SIZE(mp->pg), mp->bestpg);
+ 
+ 	if (shift >= freechar) {

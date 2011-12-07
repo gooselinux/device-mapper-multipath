@@ -1,0 +1,442 @@
+---
+ libmultipath/dict.c |  137 ++++++++++++++--------------------------------------
+ 1 file changed, 39 insertions(+), 98 deletions(-)
+
+Index: multipath-tools/libmultipath/dict.c
+===================================================================
+--- multipath-tools.orig/libmultipath/dict.c
++++ multipath-tools/libmultipath/dict.c
+@@ -328,6 +328,10 @@ def_weight_handler(vector strvec)
+ 	    !strcmp(buff, "priorities"))
+ 		conf->rr_weight = RR_WEIGHT_PRIO;
+ 
++	if (strlen(buff) == strlen("uniform") &&
++	    !strcmp(buff, "uniform"))
++		conf->rr_weight = RR_WEIGHT_NONE;
++
+ 	FREE(buff);
+ 
+ 	return 0;
+@@ -923,6 +927,10 @@ hw_weight_handler(vector strvec)
+ 	    !strcmp(buff, "priorities"))
+ 		hwe->rr_weight = RR_WEIGHT_PRIO;
+ 
++	if (strlen(buff) == strlen("uniform") &&
++	    !strcmp(buff, "uniform"))
++		hwe->rr_weight = RR_WEIGHT_NONE;
++
+ 	FREE(buff);
+ 
+ 	return 0;
+@@ -1251,6 +1259,10 @@ mp_weight_handler(vector strvec)
+ 	    !strcmp(buff, "priorities"))
+ 		mpe->rr_weight = RR_WEIGHT_PRIO;
+ 
++	if (strlen(buff) == strlen("uniform") &&
++	    !strcmp(buff, "uniform"))
++		mpe->rr_weight = RR_WEIGHT_NONE;
++
+ 	FREE(buff);
+ 
+ 	return 0;
+@@ -1402,11 +1414,6 @@ snprint_mp_alias (char * buff, int len, 
+ 	if (!mpe->alias)
+ 		return 0;
+ 
+-	if (conf->user_friendly_names &&
+-	    (strlen(mpe->alias) == strlen("mpath")) &&
+-	    !strcmp(mpe->alias, "mpath"))
+-		return 0;
+-
+ 	return snprintf(buff, len, "%s", mpe->alias);
+ }
+ 
+@@ -1431,7 +1438,7 @@ snprint_mp_selector (char * buff, int le
+ 	if (!mpe->selector)
+ 		return 0;
+ 
+-	return snprintf(buff, len, "%s", mpe->selector);
++	return snprintf(buff, len, "\"%s\"", mpe->selector);
+ }
+ 
+ static int
+@@ -1494,6 +1501,8 @@ snprint_mp_rr_weight (char * buff, int l
+ 		return 0;
+ 	if (mpe->rr_weight == RR_WEIGHT_PRIO)
+ 		return snprintf(buff, len, "priorities");
++	if (mpe->rr_weight == RR_WEIGHT_NONE)
++		return snprintf(buff, len, "uniform");
+ 
+ 	return 0;
+ }
+@@ -1568,8 +1577,6 @@ snprint_mp_prio (char * buff, int len, v
+ 
+ 	if (!mpe->prio_name)
+ 		return 0;
+-	if (!strcmp(mpe->prio_name, conf->prio_name) && !mpe->prio_args)
+-		return 0;
+ 	if (!mpe->prio_args)
+ 		return snprintf(buff, len, "%s", mpe->prio_name);
+ 	return snprintf(buff, len, "%s %s", mpe->prio_name, mpe->prio_args);
+@@ -1635,9 +1642,6 @@ snprint_hw_getuid_callout (char * buff, 
+ 
+ 	if (!hwe->getuid)
+ 		return 0;
+-	if (strlen(hwe->getuid) == strlen(conf->getuid) &&
+-	    !strcmp(hwe->getuid, conf->getuid))
+-		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", hwe->getuid);
+ }
+@@ -1649,8 +1653,6 @@ snprint_hw_prio (char * buff, int len, v
+ 
+ 	if (!hwe->prio_name)
+ 		return 0;
+-	if (!strcmp(hwe->prio_name, conf->prio_name) && !hwe->prio_args)
+-		return 0;
+ 	if (!hwe->prio_args)
+ 		return snprintf(buff, len, "%s", hwe->prio_name);
+ 	return snprintf(buff, len, "%s %s", hwe->prio_name, hwe->prio_args);
+@@ -1663,9 +1665,6 @@ snprint_hw_features (char * buff, int le
+ 
+ 	if (!hwe->features)
+ 		return 0;
+-	if (strlen(hwe->features) == strlen(conf->features) &&
+-	    !strcmp(hwe->features, conf->features))
+-		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", hwe->features);
+ }
+@@ -1677,9 +1676,6 @@ snprint_hw_hardware_handler (char * buff
+ 
+ 	if (!hwe->hwhandler)
+ 		return 0;
+-	if (strlen(hwe->hwhandler) == strlen(conf->hwhandler) &&
+-	    !strcmp(hwe->hwhandler, conf->hwhandler))
+-		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", hwe->hwhandler);
+ }
+@@ -1691,11 +1687,8 @@ snprint_hw_selector (char * buff, int le
+ 
+ 	if (!hwe->selector)
+ 		return 0;
+-	if (strlen(hwe->selector) == strlen(conf->selector) &&
+-	    !strcmp(hwe->selector, conf->selector))
+-		return 0;
+ 
+-	return snprintf(buff, len, "%s", hwe->selector);
++	return snprintf(buff, len, "\"%s\"", hwe->selector);
+ }
+ 
+ static int
+@@ -1707,8 +1700,6 @@ snprint_hw_path_grouping_policy (char * 
+ 
+ 	if (!hwe->pgpolicy)
+ 		return 0;
+-	if (hwe->pgpolicy == conf->pgpolicy)
+-		return 0;
+ 
+ 	get_pgpolicy_name(str, POLICY_NAME_SIZE, hwe->pgpolicy);
+ 
+@@ -1722,8 +1713,6 @@ snprint_hw_failback (char * buff, int le
+ 
+ 	if (!hwe->pgfailback)
+ 		return 0;
+-	if (hwe->pgfailback == conf->pgfailback)
+-		return 0;
+ 
+ 	switch(hwe->pgfailback) {
+ 	case  FAILBACK_UNDEF:
+@@ -1745,10 +1734,10 @@ snprint_hw_rr_weight (char * buff, int l
+ 
+ 	if (!hwe->rr_weight)
+ 		return 0;
+-	if (hwe->rr_weight == conf->rr_weight)
+-		return 0;
+ 	if (hwe->rr_weight == RR_WEIGHT_PRIO)
+ 		return snprintf(buff, len, "priorities");
++	if (hwe->rr_weight == RR_WEIGHT_NONE)
++		return snprintf(buff, len, "uniform");
+ 
+ 	return 0;
+ }
+@@ -1760,8 +1749,6 @@ snprint_hw_no_path_retry (char * buff, i
+ 
+ 	if (!hwe->no_path_retry)
+ 		return 0;
+-	if (hwe->no_path_retry == conf->no_path_retry)
+-		return 0;
+ 
+ 	switch(hwe->no_path_retry) {
+ 	case NO_PATH_RETRY_UNDEF:
+@@ -1784,8 +1771,6 @@ snprint_hw_rr_min_io (char * buff, int l
+ 
+ 	if (!hwe->minio)
+ 		return 0;
+-	if (hwe->minio == conf->minio)
+-		return 0;
+ 
+ 	return snprintf(buff, len, "%u", hwe->minio);
+ }
+@@ -1797,8 +1782,6 @@ snprint_hw_pg_timeout (char * buff, int 
+ 
+ 	if (!hwe->pg_timeout)
+ 		return 0;
+-	if (hwe->pg_timeout == conf->pg_timeout)
+-		return 0;
+ 
+ 	switch (hwe->pg_timeout) {
+ 	case PGTIMEOUT_UNDEF:
+@@ -1832,8 +1815,6 @@ snprint_hw_path_checker (char * buff, in
+ 
+ 	if (!hwe->checker_name)
+ 		return 0;
+-	if (!strcmp(hwe->checker_name, conf->checker_name))
+-		return 0;
+ 	
+ 	return snprintf(buff, len, "%s", hwe->checker_name);
+ }
+@@ -1841,8 +1822,6 @@ snprint_hw_path_checker (char * buff, in
+ static int
+ snprint_def_polling_interval (char * buff, int len, void * data)
+ {
+-	if (conf->checkint == DEFAULT_CHECKINT)
+-		return 0;
+ 	return snprintf(buff, len, "%i", conf->checkint);
+ }
+ 
+@@ -1867,8 +1846,6 @@ snprint_def_dev_loss(char * buff, int le
+ static int
+ snprint_def_verbosity (char * buff, int len, void * data)
+ {
+-	if (conf->checkint == DEFAULT_VERBOSITY)
+-		return 0;
+ 	return snprintf(buff, len, "%i", conf->verbosity);
+ }
+ 
+@@ -1877,9 +1854,6 @@ snprint_def_udev_dir (char * buff, int l
+ {
+ 	if (!conf->udev_dir)
+ 		return 0;
+-	if (strlen(DEFAULT_UDEVDIR) == strlen(conf->udev_dir) &&
+-	    !strcmp(conf->udev_dir, DEFAULT_UDEVDIR))
+-		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", conf->udev_dir);
+ }
+@@ -1887,10 +1861,7 @@ snprint_def_udev_dir (char * buff, int l
+ static int
+ snprint_def_multipath_dir (char * buff, int len, void * data)
+ {
+-	if (!conf->udev_dir)
+-		return 0;
+-	if (strlen(DEFAULT_MULTIPATHDIR) == strlen(conf->multipath_dir) &&
+-	    !strcmp(conf->multipath_dir, DEFAULT_MULTIPATHDIR))
++	if (!conf->multipath_dir)
+ 		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", conf->multipath_dir);
+@@ -1901,11 +1872,8 @@ snprint_def_selector (char * buff, int l
+ {
+ 	if (!conf->selector)
+ 		return 0;
+-	if (strlen(conf->selector) == strlen(DEFAULT_SELECTOR) &&
+-	    !strcmp(conf->selector, DEFAULT_SELECTOR))
+-		return 0;
+ 
+-	return snprintf(buff, len, "%s", conf->selector);
++	return snprintf(buff, len, "\"%s\"", conf->selector);
+ }
+ 
+ static int
+@@ -1913,12 +1881,10 @@ snprint_def_path_grouping_policy (char *
+ {
+ 	char str[POLICY_NAME_SIZE];
+ 
+-	if (!conf->pgpolicy)
+-		return 0;
+-	if (conf->pgpolicy == DEFAULT_PGPOLICY)
+-		return 0;
+-
+-	get_pgpolicy_name(str, POLICY_NAME_SIZE, conf->pgpolicy);
++	if (conf->pgpolicy)
++		get_pgpolicy_name(str, POLICY_NAME_SIZE, conf->pgpolicy);
++	else
++		get_pgpolicy_name(str, POLICY_NAME_SIZE, DEFAULT_PGPOLICY);
+ 
+ 	return snprintf(buff, len, "%s", str);
+ }
+@@ -1928,9 +1894,6 @@ snprint_def_getuid_callout (char * buff,
+ {
+ 	if (!conf->getuid)
+ 		return 0;
+-	if (strlen(conf->getuid) == strlen(DEFAULT_GETUID) &&
+-	    !strcmp(conf->getuid, DEFAULT_GETUID))
+-		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", conf->getuid);
+ }
+@@ -1941,10 +1904,6 @@ snprint_def_prio (char * buff, int len, 
+ 	if (!conf->prio_name)
+ 		return 0;
+ 
+-	if (strlen(conf->prio_name) == strlen(DEFAULT_PRIO) &&
+-	    !strcmp(conf->prio_name, DEFAULT_PRIO) && !conf->prio_args)
+-		return 0;
+-
+ 	if (!conf->prio_args)
+ 		return snprintf(buff, len, "%s", conf->prio_name);
+ 	else
+@@ -1957,9 +1916,6 @@ snprint_def_features (char * buff, int l
+ {
+ 	if (!conf->features)
+ 		return 0;
+-	if (strlen(conf->features) == strlen(DEFAULT_FEATURES) &&
+-	    !strcmp(conf->features, DEFAULT_FEATURES))
+-		return 0;
+ 
+ 	return snprintf(buff, len, "\"%s\"", conf->features);
+ }
+@@ -1969,9 +1925,6 @@ snprint_def_path_checker (char * buff, i
+ {
+ 	if (!conf->checker_name)
+ 		return 0;
+-	if (strlen(conf->checker_name) == strlen(DEFAULT_CHECKER) &&
+-	    !strcmp(conf->checker_name, DEFAULT_CHECKER))
+-		return 0;
+ 	
+ 	return snprintf(buff, len, "%s", conf->checker_name);
+ }
+@@ -1979,12 +1932,11 @@ snprint_def_path_checker (char * buff, i
+ static int
+ snprint_def_failback (char * buff, int len, void * data)
+ {
++	int pgfailback = conf->pgfailback;
+ 	if (!conf->pgfailback)
+-		return 0;
+-	if (conf->pgfailback == DEFAULT_FAILBACK)
+-		return 0;
++		pgfailback = DEFAULT_FAILBACK;
+ 
+-	switch(conf->pgfailback) {
++	switch(pgfailback) {
+ 	case  FAILBACK_UNDEF:
+ 		break;
+ 	case -FAILBACK_MANUAL:
+@@ -1992,7 +1944,7 @@ snprint_def_failback (char * buff, int l
+ 	case -FAILBACK_IMMEDIATE:
+ 		return snprintf(buff, len, "immediate");
+ 	default:
+-		return snprintf(buff, len, "%i", conf->pgfailback);
++		return snprintf(buff, len, "%i", pgfailback);
+ 	}
+ 	return 0;
+ }
+@@ -2000,12 +1952,10 @@ snprint_def_failback (char * buff, int l
+ static int
+ snprint_def_rr_min_io (char * buff, int len, void * data)
+ {
+-	if (!conf->minio)
+-		return 0;
+-	if (conf->minio == DEFAULT_MINIO)
+-		return 0;
+-
+-	return snprintf(buff, len, "%u", conf->minio);
++	if (conf->minio)
++		return snprintf(buff, len, "%u", conf->minio);
++	else
++		return snprintf(buff, len, "%u", DEFAULT_MINIO);
+ }
+ 
+ static int
+@@ -2045,11 +1995,11 @@ static int
+ snprint_def_rr_weight (char * buff, int len, void * data)
+ {
+ 	if (!conf->rr_weight)
+-		return 0;
+-	if (conf->rr_weight == DEFAULT_RR_WEIGHT)
+-		return 0;
++		return snprintf(buff, len, "uniform");
+ 	if (conf->rr_weight == RR_WEIGHT_PRIO)
+ 		return snprintf(buff, len, "priorities");
++	if (conf->rr_weight == RR_WEIGHT_NONE)
++		return snprintf(buff, len, "uniform");
+ 
+ 	return 0;
+ }
+@@ -2057,9 +2007,6 @@ snprint_def_rr_weight (char * buff, int 
+ static int
+ snprint_def_no_path_retry (char * buff, int len, void * data)
+ {
+-	if (conf->no_path_retry == DEFAULT_NO_PATH_RETRY)
+-		return 0;
+-
+ 	switch(conf->no_path_retry) {
+ 	case NO_PATH_RETRY_UNDEF:
+ 		break;
+@@ -2081,6 +2028,7 @@ snprint_def_queue_without_daemon (char *
+ 	case QUE_NO_DAEMON_OFF:
+ 		return snprintf(buff, len, "no");
+ 	case QUE_NO_DAEMON_ON:
++	case QUE_NO_DAEMON_UNDEF:
+ 		return snprintf(buff, len, "yes");
+ 	}
+ 	return 0;
+@@ -2098,12 +2046,8 @@ snprint_def_checker_timeout (char *buff,
+ static int
+ snprint_def_pg_timeout (char * buff, int len, void * data)
+ {
+-	if (conf->pg_timeout == DEFAULT_PGTIMEOUT)
+-		return 0;
+-
+ 	switch (conf->pg_timeout) {
+ 	case PGTIMEOUT_UNDEF:
+-		break;
+ 	case -PGTIMEOUT_NONE:
+ 		return snprintf(buff, len, "none");
+ 	default:
+@@ -2117,6 +2061,7 @@ snprint_def_flush_on_last_del (char * bu
+ {
+ 	switch (conf->flush_on_last_del) {
+ 	case FLUSH_DISABLED:
++	case FLUSH_UNDEF:
+ 		return snprintf(buff, len, "no");
+ 	case FLUSH_ENABLED:
+ 		return snprintf(buff, len, "yes");
+@@ -2127,8 +2072,6 @@ snprint_def_flush_on_last_del (char * bu
+ static int
+ snprint_def_find_multipaths (char * buff, int len, void * data)
+ {
+-	if (conf->find_multipaths == DEFAULT_FIND_MULTIPATHS)
+-		return 0;
+ 	if (!conf->find_multipaths)
+ 		return snprintf(buff, len, "no");
+ 
+@@ -2139,8 +2082,6 @@ snprint_def_find_multipaths (char * buff
+ static int
+ snprint_def_user_friendly_names (char * buff, int len, void * data)
+ {
+-	if (conf->user_friendly_names == DEFAULT_USER_FRIENDLY_NAMES)
+-		return 0;
+ 	if (!conf->user_friendly_names)
+ 		return snprintf(buff, len, "no");
+ 
+@@ -2187,7 +2128,7 @@ init_keywords(void)
+ 	install_keyword("prio", &def_prio_handler, &snprint_def_prio);
+ 	install_keyword("features", &def_features_handler, &snprint_def_features);
+ 	install_keyword("path_checker", &def_path_checker_handler, &snprint_def_path_checker);
+-	install_keyword("checker", &def_path_checker_handler, &snprint_def_path_checker);
++	install_keyword("checker", &def_path_checker_handler, NULL);
+ 	install_keyword("failback", &default_failback_handler, &snprint_def_failback);
+ 	install_keyword("rr_min_io", &def_minio_handler, &snprint_def_rr_min_io);
+ 	install_keyword("max_fds", &max_fds_handler, &snprint_max_fds);
+@@ -2248,7 +2189,7 @@ init_keywords(void)
+ 	install_keyword("getuid_callout", &hw_getuid_callout_handler, &snprint_hw_getuid_callout);
+ 	install_keyword("path_selector", &hw_selector_handler, &snprint_hw_selector);
+ 	install_keyword("path_checker", &hw_path_checker_handler, &snprint_hw_path_checker);
+-	install_keyword("checker", &hw_path_checker_handler, &snprint_hw_path_checker);
++	install_keyword("checker", &hw_path_checker_handler, NULL);
+ 	install_keyword("features", &hw_features_handler, &snprint_hw_features);
+ 	install_keyword("hardware_handler", &hw_handler_handler, &snprint_hw_hardware_handler);
+ 	install_keyword("prio", &hw_prio_handler, &snprint_hw_prio);

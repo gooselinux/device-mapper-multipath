@@ -1,0 +1,31 @@
+---
+ libmultipath/structs_vec.c |    2 +-
+ multipathd/main.c          |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+Index: multipath-tools/multipathd/main.c
+===================================================================
+--- multipath-tools.orig/multipathd/main.c
++++ multipath-tools/multipathd/main.c
+@@ -1178,7 +1178,7 @@ configure (struct vectors * vecs, int st
+ 	/*
+ 	 * create new set of maps & push changed ones into dm
+ 	 */
+-	if (coalesce_paths(vecs, mpvec, NULL, 0))
++	if (coalesce_paths(vecs, mpvec, NULL, 1))
+ 		return 1;
+ 
+ 	/*
+Index: multipath-tools/libmultipath/structs_vec.c
+===================================================================
+--- multipath-tools.orig/libmultipath/structs_vec.c
++++ multipath-tools/libmultipath/structs_vec.c
+@@ -355,7 +355,7 @@ retry:
+ 		goto out;
+ 	}
+ 
+-	//adopt_paths(vecs->pathvec, mpp);
++	adopt_paths(vecs->pathvec, mpp);
+ 	if (!mpp->hwe)
+ 		mpp->hwe = extract_hwe_from_path(mpp);
+ 	if (!mpp->hwe) {

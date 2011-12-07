@@ -1,0 +1,35 @@
+---
+ libmultipath/configure.c |    4 ++--
+ libmultipath/log.h       |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+Index: multipath-tools/libmultipath/configure.c
+===================================================================
+--- multipath-tools.orig/libmultipath/configure.c
++++ multipath-tools/libmultipath/configure.c
+@@ -193,8 +193,8 @@ select_action (struct multipath * mpp, v
+ 		return;
+ 	}
+ 	if (cmpp->size != mpp->size) {
+-		mpp->action = ACT_RELOAD;
+-		condlog(3, "%s: set ACT_RELOAD (size change)",
++		mpp->action = ACT_RESIZE;
++		condlog(3, "%s: set ACT_RESIZE (size change)",
+ 			mpp->alias);
+ 		return;
+ 	}
+Index: multipath-tools/libmultipath/log.h
+===================================================================
+--- multipath-tools.orig/libmultipath/log.h
++++ multipath-tools/libmultipath/log.h
+@@ -1,8 +1,8 @@
+ #ifndef LOG_H
+ #define LOG_H
+ 
+-#define DEFAULT_AREA_SIZE 8192
+-#define MAX_MSG_SIZE 128
++#define DEFAULT_AREA_SIZE 16384
++#define MAX_MSG_SIZE 256
+ 
+ #ifndef LOGLEVEL
+ #define LOGLEVEL 5

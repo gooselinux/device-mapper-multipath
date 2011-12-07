@@ -1,0 +1,16 @@
+--- multipath-tools/multipathd/main.c	2010-06-18 09:44:59.000000000 +0200
++++ multipath-tools.new/multipathd/main.c	2010-06-18 10:21:41.000000000 +0200
+@@ -317,11 +317,9 @@ ev_remove_map (char * devname, struct ve
+ 	if (!mpp) {
+ 		condlog(2, "%s: devmap not registered, can't remove",
+ 			devname);
+-		return 0;
++		return 1;
+ 	}
+-	flush_map(mpp, vecs);
+-
+-	return 0;
++	return flush_map(mpp, vecs);
+ }
+ 
+ static int

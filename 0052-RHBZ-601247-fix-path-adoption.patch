@@ -1,0 +1,115 @@
+---
+ libmultipath/structs_vec.c |   42 ++++++++++++++++++++++++++----------------
+ libmultipath/structs_vec.h |    2 +-
+ multipathd/main.c          |    2 +-
+ 3 files changed, 28 insertions(+), 18 deletions(-)
+
+Index: multipath-tools/libmultipath/structs_vec.c
+===================================================================
+--- multipath-tools.orig/libmultipath/structs_vec.c
++++ multipath-tools/libmultipath/structs_vec.c
+@@ -45,8 +45,15 @@ update_mpp_paths(struct multipath * mpp,
+ 	return 0;
+ }
+ 
++/* Getting the pathinfo for paths we already have seems like a hack.
++ * It's necessary since sometimes a multipath device we get from the
++ * kernel conatains paths that aren't in our pathvector.  In this case
++ * we need to add the paths just like any other, making sure
++ * that we only accept paths that are allowed by our configuration.
++ */
++
+ extern int
+-adopt_paths (vector pathvec, struct multipath * mpp)
++adopt_paths (vector pathvec, struct multipath * mpp, int verify_all)
+ {
+ 	int i;
+ 	struct path * pp;
+@@ -58,19 +65,22 @@ adopt_paths (vector pathvec, struct mult
+ 		return 1;
+ 
+ 	vector_foreach_slot (pathvec, pp, i) {
+-		if (!strncmp(mpp->wwid, pp->wwid, WWID_SIZE)) {
+-			condlog(3, "%s: ownership set to %s",
+-				pp->dev, mpp->alias);
+-			pp->mpp = mpp;
+-
+-			if (!mpp->paths && !(mpp->paths = vector_alloc()))
+-				return 1;
+-
+-			if (!find_path_by_dev(mpp->paths, pp->dev) &&
+-			    store_path(mpp->paths, pp))
+-					return 1;
+-			pathinfo(pp, conf->hwtable, DI_PRIO | DI_CHECKER);
++		if (strncmp(mpp->wwid, pp->wwid, WWID_SIZE))
++			continue;
++		condlog(3, "%s: ownership set to %s", pp->dev, mpp->alias);
++		pp->mpp = mpp;
++
++		if (!mpp->paths && !(mpp->paths = vector_alloc()))
++			return 1;
++
++		if (find_path_by_dev(mpp->paths, pp->dev)) {
++			if (!verify_all)
++				continue;
+ 		}
++		else if (store_path(mpp->paths, pp))
++			return 1;
++
++		pathinfo(pp, conf->hwtable, DI_PRIO | DI_CHECKER);
+ 	}
+ 	return 0;
+ }
+@@ -389,7 +399,7 @@ add_map_without_path (struct vectors * v
+ 		return NULL; /* mpp freed in setup_multipath */
+ 	}
+ 
+-	if (adopt_paths(vecs->pathvec, mpp))
++	if (adopt_paths(vecs->pathvec, mpp, 1))
+ 		goto out;
+ 
+ 	if (!vector_alloc_slot(vecs->mpvec))
+@@ -422,7 +432,7 @@ add_map_with_path (struct vectors * vecs
+ 	select_alias(mpp);
+ 	mpp->size = pp->size;
+ 
+-	if (adopt_paths(vecs->pathvec, mpp))
++	if (adopt_paths(vecs->pathvec, mpp, 1))
+ 		goto out;
+ 
+ 	if (add_vec) {
+@@ -497,7 +507,7 @@ int update_multipath (struct vectors *ve
+ 	if (setup_multipath(vecs, mpp))
+ 		return 1; /* mpp freed in setup_multipath */
+ 
+-	adopt_paths(vecs->pathvec, mpp);
++	adopt_paths(vecs->pathvec, mpp, 0);
+ 	/*
+ 	 * compare checkers states with DM states
+ 	 */
+Index: multipath-tools/multipathd/main.c
+===================================================================
+--- multipath-tools.orig/multipathd/main.c
++++ multipath-tools/multipathd/main.c
+@@ -413,7 +413,7 @@ rescan:
+ 	if (mpp) {
+ 		condlog(4,"%s: adopting all paths for path %s",
+ 			mpp->alias, pp->dev);
+-		if (adopt_paths(vecs->pathvec, mpp))
++		if (adopt_paths(vecs->pathvec, mpp, 1))
+ 			goto fail; /* leave path added to pathvec */
+ 
+ 		verify_paths(mpp, vecs, NULL);
+Index: multipath-tools/libmultipath/structs_vec.h
+===================================================================
+--- multipath-tools.orig/libmultipath/structs_vec.h
++++ multipath-tools/libmultipath/structs_vec.h
+@@ -15,7 +15,7 @@ struct vectors {
+ 
+ void set_no_path_retry(struct multipath *mpp);
+ 
+-int adopt_paths (vector pathvec, struct multipath * mpp);
++int adopt_paths (vector pathvec, struct multipath * mpp, int verify_all);
+ void orphan_paths (vector pathvec, struct multipath * mpp);
+ void orphan_path (struct path * pp);
+ 

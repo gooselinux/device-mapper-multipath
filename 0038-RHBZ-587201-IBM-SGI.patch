@@ -1,0 +1,61 @@
+---
+ libmultipath/hwtable.c |   34 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 32 insertions(+), 2 deletions(-)
+
+Index: multipath-tools/libmultipath/hwtable.c
+===================================================================
+--- multipath-tools.orig/libmultipath/hwtable.c
++++ multipath-tools/libmultipath/hwtable.c
+@@ -455,6 +455,36 @@ static struct hwentry default_hw[] = {
+ 		.prio_name     = PRIO_RDAC,
+ 	},
+ 	{
++		.vendor        = "IBM",
++		.product       = "1745",
++		.getuid        = DEFAULT_GETUID,
++		.features      = "2 pg_init_retries 50",
++		.hwhandler     = "1 rdac",
++		.selector      = DEFAULT_SELECTOR,
++		.pgpolicy      = GROUP_BY_PRIO,
++		.pgfailback    = -FAILBACK_IMMEDIATE,
++		.rr_weight     = RR_WEIGHT_NONE,
++		.no_path_retry = 15,
++		.minio         = DEFAULT_MINIO,
++		.checker_name  = RDAC,
++		.prio_name     = PRIO_RDAC,
++	},
++	{
++		.vendor        = "IBM",
++		.product       = "1746",
++		.getuid        = DEFAULT_GETUID,
++		.features      = "2 pg_init_retries 50",
++		.hwhandler     = "1 rdac",
++		.selector      = DEFAULT_SELECTOR,
++		.pgpolicy      = GROUP_BY_PRIO,
++		.pgfailback    = -FAILBACK_IMMEDIATE,
++		.rr_weight     = RR_WEIGHT_NONE,
++		.no_path_retry = 15,
++		.minio         = DEFAULT_MINIO,
++		.checker_name  = RDAC,
++		.prio_name     = PRIO_RDAC,
++	},
++	{
+ 	    /* IBM DS4700 */
+ 		.vendor        = "IBM",
+ 		.product       = "1814",
+@@ -853,13 +883,13 @@ static struct hwentry default_hw[] = {
+ 		.vendor        = "SGI",
+ 		.product       = "IS.*",
+ 		.getuid        = DEFAULT_GETUID,
+-		.features      = DEFAULT_FEATURES,
++		.features      = "2 pg_init_retries 50",
+ 		.hwhandler     = "1 rdac",
+ 		.selector      = DEFAULT_SELECTOR,
+ 		.pgpolicy      = GROUP_BY_PRIO,
+ 		.pgfailback    = -FAILBACK_IMMEDIATE,
+ 		.rr_weight     = RR_WEIGHT_NONE,
+-		.no_path_retry = NO_PATH_RETRY_QUEUE,
++		.no_path_retry = 15,
+ 		.minio         = DEFAULT_MINIO,
+ 		.checker_name  = RDAC,
+ 		.prio_name     = PRIO_RDAC,

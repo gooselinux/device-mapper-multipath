@@ -1,0 +1,146 @@
+---
+ libmultipath/finder.c     |    2 +-
+ libmultipath/finder.h     |    1 +
+ multipath/main.c          |   35 ++++++++++++++++++++++++++++-------
+ multipath/multipath.rules |    8 ++++++++
+ 4 files changed, 38 insertions(+), 8 deletions(-)
+
+Index: multipath-tools/libmultipath/finder.c
+===================================================================
+--- multipath-tools.orig/libmultipath/finder.c
++++ multipath-tools/libmultipath/finder.c
+@@ -78,7 +78,7 @@ write_out_wwid(int fd, char *wwid) {
+ 	return 1;
+ }
+ 
+-static int
++int
+ check_wwids_file(char *wwid, int write_wwid)
+ {
+ 	int scan_fd, fd, can_write, found, ret;
+Index: multipath-tools/libmultipath/finder.h
+===================================================================
+--- multipath-tools.orig/libmultipath/finder.h
++++ multipath-tools/libmultipath/finder.h
+@@ -14,5 +14,6 @@
+ 
+ int should_multipath(struct path *pp, vector pathvec);
+ int remember_wwid(char *wwid);
++int check_wwids_file(char *wwid, int write_wwid);
+ 
+ #endif /* _FINDER_H */
+Index: multipath-tools/multipath/main.c
+===================================================================
+--- multipath-tools.orig/multipath/main.c
++++ multipath-tools/multipath/main.c
+@@ -51,6 +51,7 @@
+ #include <errno.h>
+ #include <sys/time.h>
+ #include <sys/resource.h>
++#include <finder.h>
+ 
+ int logsink;
+ 
+@@ -79,7 +80,7 @@ usage (char * progname)
+ {
+ 	fprintf (stderr, VERSION_STRING);
+ 	fprintf (stderr, "Usage:\n");
+-	fprintf (stderr, "  %s [-d] [-r] [-v lvl] [-p pol] [-b fil] [dev]\n", progname);
++	fprintf (stderr, "  %s [-c] [-d] [-r] [-v lvl] [-p pol] [-b fil] [dev]\n", progname);
+ 	fprintf (stderr, "  %s -l|-ll|-f [-v lvl] [-b fil] [dev]\n", progname);
+ 	fprintf (stderr, "  %s -F [-v lvl]\n", progname);
+ 	fprintf (stderr, "  %s -h\n", progname);
+@@ -91,6 +92,7 @@ usage (char * progname)
+ 		"  -ll     show multipath topology (maximum info)\n" \
+ 		"  -f      flush a multipath device map\n" \
+ 		"  -F      flush all multipath device maps\n" \
++		"  -c      check if a device should be a path in a multipath device\n" \
+ 		"  -d      dry run, do not create or update devmaps\n" \
+ 		"  -r      force devmap reload\n" \
+ 		"  -p      policy failover|multibus|group_by_serial|group_by_prio\n" \
+@@ -249,10 +251,11 @@ configure (void)
+ 	/*
+ 	 * if we have a blacklisted device parameter, exit early
+ 	 */
+-	if (dev && 
+-	    (filter_devnode(conf->blist_devnode, conf->elist_devnode, dev) > 0))
+-			goto out;
+-	
++	if (dev && (filter_devnode(conf->blist_devnode, conf->elist_devnode, dev) > 0)) {
++		if (conf->dry_run == 2)
++			printf("%s is not a valid multipath device path\n", conf->dev);
++		goto out;
++	}
+ 	/*
+ 	 * scope limiting must be translated into a wwid
+ 	 * failing the translation is fatal (by policy)
+@@ -268,6 +271,15 @@ configure (void)
+ 		if (filter_wwid(conf->blist_wwid, conf->elist_wwid,
+ 				refwwid) > 0)
+ 			goto out;
++		if (conf->dry_run == 2) {
++			if (check_wwids_file(refwwid, 0) == 0){
++				printf("%s is a valid multipath device path\n", conf->dev);
++				r = 0;
++			}
++			else
++				printf("%s is not a valid multipath device path\n", conf->dev);
++			goto out;
++		}
+ 	}
+ 
+ 	/*
+@@ -350,7 +362,7 @@ main (int argc, char *argv[])
+ 		condlog(0, "multipath tools need sysfs mounted");
+ 		exit(1);
+ 	}
+-	while ((arg = getopt(argc, argv, ":dhl::FfM:v:p:b:r")) != EOF ) {
++	while ((arg = getopt(argc, argv, ":dchl::FfM:v:p:b:r")) != EOF ) {
+ 		switch(arg) {
+ 		case 1: printf("optarg : %s\n",optarg);
+ 			break;
+@@ -364,8 +376,12 @@ main (int argc, char *argv[])
+ 		case 'b':
+ 			conf->bindings_file = optarg;
+ 			break;
++		case 'c':
++			conf->dry_run = 2;
++			break;
+ 		case 'd':
+-			conf->dry_run = 1;
++			if (!conf->dry_run)
++				conf->dry_run = 1;
+ 			break;
+ 		case 'f':
+ 			conf->remove = FLUSH_ONE;
+@@ -438,6 +454,11 @@ main (int argc, char *argv[])
+ 
+ 	dm_init();
+ 
++	if (conf->dry_run == 2 &&
++	    (!conf->dev || conf->dev_type == DEV_DEVMAP)) {
++		condlog(0, "the -c option requires a path to check");
++		goto out;
++	}
+ 	if (conf->remove == FLUSH_ONE) {
+ 		if (conf->dev_type == DEV_DEVMAP)
+ 			r = dm_flush_map(conf->dev);
+Index: multipath-tools/multipath/multipath.rules
+===================================================================
+--- multipath-tools.orig/multipath/multipath.rules
++++ multipath-tools/multipath/multipath.rules
+@@ -1,6 +1,14 @@
+ # multipath wants the devmaps presented as meaninglful device names
+ # so name them after their devmap name
+ SUBSYSTEM!="block", GOTO="end_mpath"
++TEST!="/sbin/multipath", GOTO="check_usr"
++ENV{MPATH_GOT_HERE}="$env{DEVNAME}"
++PROGRAM=="/sbin/multipath -c /dev/$env{DEVNAME}", ENV{DM_MULTIPATH_DEVICE_PATH}="1"
++GOTO="skip_usr"
++LABEL="check_usr"
++ENV{MPATH_GOT_HERE} = "2"
++PROGRAM=="/usr/sbin/multipath -c /dev/$env{DEVNAME}", ENV{DM_MULTIPATH_DEVICE_PATH}="1"
++LABEL="skip_usr"
+ RUN+="socket:/org/kernel/dm/multipath_event"
+ KERNEL!="dm-*", GOTO="end_mpath"
+ ACTION!="change", GOTO="end_mpath"

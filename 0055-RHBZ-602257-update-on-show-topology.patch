@@ -1,0 +1,142 @@
+---
+ libmultipath/structs_vec.c |   18 ++++++++++--------
+ libmultipath/structs_vec.h |    6 ++++--
+ libmultipath/waiter.c      |    2 +-
+ multipathd/cli_handlers.c  |   14 +++++++++++---
+ 4 files changed, 26 insertions(+), 14 deletions(-)
+
+Index: multipath-tools/multipathd/cli_handlers.c
+===================================================================
+--- multipath-tools.orig/multipathd/cli_handlers.c
++++ multipath-tools/multipathd/cli_handlers.c
+@@ -81,7 +81,8 @@ show_paths (char ** r, int * len, struct
+ }
+ 
+ int
+-show_map_topology (char ** r, int * len, struct multipath * mpp)
++show_map_topology (char ** r, int * len, struct multipath * mpp,
++		   struct vectors * vecs)
+ {
+ 	char * c;
+ 	char * reply;
+@@ -90,6 +91,8 @@ show_map_topology (char ** r, int * len,
+ 
+ 	reply = MALLOC(maxlen);
+ 
++	if (update_multipath(vecs, mpp->alias, 0))
++		return 1;
+ 	while (again) {
+ 		if (!reply)
+ 			return 1;
+@@ -127,9 +130,14 @@ show_maps_topology (char ** r, int * len
+ 
+ 		c = reply;
+ 
+-		vector_foreach_slot(vecs->mpvec, mpp, i)
++		vector_foreach_slot(vecs->mpvec, mpp, i) {
++			if (update_multipath(vecs, mpp->alias, 0)) {
++				i--;
++				continue;
++			}
+ 			c += snprint_multipath_topology(c, reply + maxlen - c,
+ 							mpp, 2);
++		}
+ 
+ 		again = ((c - reply) == (maxlen - 1));
+ 
+@@ -244,7 +252,7 @@ cli_list_map_topology (void * v, char **
+ 
+ 	condlog(3, "list multipath %s (operator)", param);
+ 
+-	return show_map_topology(reply, len, mpp);
++	return show_map_topology(reply, len, mpp, vecs);
+ }
+ 
+ int
+Index: multipath-tools/libmultipath/structs_vec.c
+===================================================================
+--- multipath-tools.orig/libmultipath/structs_vec.c
++++ multipath-tools/libmultipath/structs_vec.c
+@@ -325,7 +325,7 @@ set_no_path_retry(struct multipath *mpp)
+ }
+ 
+ extern int
+-setup_multipath (struct vectors * vecs, struct multipath * mpp)
++__setup_multipath (struct vectors * vecs, struct multipath * mpp, int reset)
+ {
+ retry:
+ 	if (dm_get_info(mpp->alias, &mpp->dmi)) {
+@@ -371,11 +371,13 @@ retry:
+ 		condlog(3, "%s: no hardware entry found, using defaults",
+ 			mpp->alias);
+ 	}
+-	select_rr_weight(mpp);
+-	select_pgfailback(mpp);
+-	set_no_path_retry(mpp);
+-	select_pg_timeout(mpp);
+-	select_flush_on_last_del(mpp);
++	if (reset) {
++		select_rr_weight(mpp);
++		select_pgfailback(mpp);
++		set_no_path_retry(mpp);
++		select_pg_timeout(mpp);
++		select_flush_on_last_del(mpp);
++	}
+ 
+ 	return 0;
+ out:
+@@ -487,7 +489,7 @@ verify_paths(struct multipath * mpp, str
+ 	return count;
+ }
+ 
+-int update_multipath (struct vectors *vecs, char *mapname)
++int update_multipath (struct vectors *vecs, char *mapname, int reset)
+ {
+ 	struct multipath *mpp;
+ 	struct pathgroup  *pgp;
+@@ -504,7 +506,7 @@ int update_multipath (struct vectors *ve
+ 	free_pgvec(mpp->pg, KEEP_PATHS);
+ 	mpp->pg = NULL;
+ 
+-	if (setup_multipath(vecs, mpp))
++	if (__setup_multipath(vecs, mpp, reset))
+ 		return 1; /* mpp freed in setup_multipath */
+ 
+ 	adopt_paths(vecs->pathvec, mpp, 0);
+Index: multipath-tools/libmultipath/structs_vec.h
+===================================================================
+--- multipath-tools.orig/libmultipath/structs_vec.h
++++ multipath-tools/libmultipath/structs_vec.h
+@@ -21,7 +21,9 @@ void orphan_path (struct path * pp);
+ 
+ int verify_paths(struct multipath * mpp, struct vectors * vecs, vector rpvec);
+ int update_mpp_paths(struct multipath * mpp, vector pathvec);
+-int setup_multipath (struct vectors * vecs, struct multipath * mpp);
++int __setup_multipath (struct vectors * vecs, struct multipath * mpp,
++		       int reset);
++#define setup_multipath(vecs, mpp) __setup_multipath(vecs, mpp, 1)
+ int update_multipath_strings (struct multipath *mpp, vector pathvec);
+ 	
+ void remove_map (struct multipath * mpp, struct vectors * vecs, int purge_vec);
+@@ -33,7 +35,7 @@ struct multipath * add_map_without_path 
+ 				int minor, char * alias);
+ struct multipath * add_map_with_path (struct vectors * vecs,
+ 				struct path * pp, int add_vec);
+-int update_multipath (struct vectors *vecs, char *mapname);
++int update_multipath (struct vectors *vecs, char *mapname, int reset);
+ void update_queue_mode_del_path(struct multipath *mpp);
+ void update_queue_mode_add_path(struct multipath *mpp);
+ 
+Index: multipath-tools/libmultipath/waiter.c
+===================================================================
+--- multipath-tools.orig/libmultipath/waiter.c
++++ multipath-tools/libmultipath/waiter.c
+@@ -161,7 +161,7 @@ int waiteventloop (struct event_thread *
+ 		 */
+ 		pthread_cleanup_push(cleanup_lock, &waiter->vecs->lock);
+ 		lock(waiter->vecs->lock);
+-		r = update_multipath(waiter->vecs, waiter->mapname);
++		r = update_multipath(waiter->vecs, waiter->mapname, 1);
+ 		lock_cleanup_pop(waiter->vecs->lock);
+ 
+ 		if (r) {

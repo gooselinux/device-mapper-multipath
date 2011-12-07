@@ -1,0 +1,17 @@
+---
+ libmultipath/hwtable.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: multipath-tools/libmultipath/hwtable.c
+===================================================================
+--- multipath-tools.orig/libmultipath/hwtable.c
++++ multipath-tools/libmultipath/hwtable.c
+@@ -221,7 +221,7 @@ static struct hwentry default_hw[] = {
+ 		.rr_weight     = RR_WEIGHT_NONE,
+ 		.no_path_retry = 12,
+ 		.minio         = DEFAULT_MINIO,
+-		.checker_name  = CCISS_TUR,
++		.checker_name  = TUR,
+ 		.prio_name     = DEFAULT_PRIO,
+ 	},
+ 	/*

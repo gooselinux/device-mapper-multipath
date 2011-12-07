@@ -1,0 +1,251 @@
+---
+ multipath/multipath.conf.5 |  148 +++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 122 insertions(+), 26 deletions(-)
+
+Index: multipath-tools/multipath/multipath.conf.5
+===================================================================
+--- multipath-tools.orig/multipath/multipath.conf.5
++++ multipath-tools/multipath/multipath.conf.5
+@@ -76,6 +76,33 @@ default is
+ directory where udev creates its device nodes; default is
+ .I /dev
+ .TP
++.B multipath_dir
++directory where the dynamic shared objects are stored; default is system
++dependent, commonly
++.I /lib/multipath
++.TP
++.B find_multipaths
++If set to
++.I yes
++, instead of trying to create a multipath device for every non-blacklisted
++path, multipath will only create a device if one of three condidions are
++met.
++.I 1
++There are at least two non-blacklisted paths with the same wwid,
++.I 2
++the user manually forces the creation, by specifying a device with the multipath
++command, or
++.I 3
++a path has the same WWID as a multipath device that was previously created
++while find_multipaths was set (even if that multipath device doesn't currently
++exist).
++Whenever a multipath device is created with find_multipaths set, multipath will
++remeber the WWID of the device, so that it will automatically create the
++device again, as soon as it sees a path with that WWID. This should allow most
++users to have multipath automatically choose the correct paths to make into
++multipath devices, without having to edit the blacklist; Default is
++.I no
++.TP
+ .B verbosity
+ default verbosity. Higher values increase the verbosity level. Valid
+ levels are between 0 and 6; default is
+@@ -130,39 +157,38 @@ identifier. Should be specified with an 
+ is
+ .I /lib/udev/scsi_id --whitelisted --device=/dev/%n
+ .TP
+-.B prio_callout
+-The default program and args to callout to obtain a path priority
+-value. The specified program will be executed and should return a
+-numeric value specifying the relative priority of this path. Higher
+-number have a higher priority. A '%n' in the command line will be expanded
+-to the device name, a '%b' will be expanded to the device number in
+-.I major:minor
+-format.
+-.I "none"
+-is a valid value. Currently the following path priority programs are
+-implemented:
++.B prio
++The default method used to obtain a path priority value. Possible
++values are
+ .RS
+ .TP 12
+-.B mpath_prio_emc /dev/%n
++.B const
++Set a priority of one to all paths
++.TP
++.B emc
+ Generate the path priority for EMC arrays
+ .TP
+-.B mpath_prio_alua /dev/%n
++.B alua
+ Generate the path priority based on the SCSI-3 ALUA settings.
+ .TP
+-.B mpath_prio_ontap /dev/%n
++.B tpg_pref
++Generate the path prority based on the SCSI-3 ALUA settings, using
++the preferred port bit.
++.TP
++.B ontap
+ Generate the path priority for NetApp arrays.
+ .TP
+-.B mpath_prio_rdac /dev/%n
++.B rdac
+ Generate the path priority for LSI/Engenio RDAC controller.
+ .TP
+-.B mpath_prio_hp_sw /dev/%n
++.B hp_sw
+ Generate the path priority for Compaq/HP controller in
+ active/standby mode.
+ .TP
+-.B mpath_prio_hds_modular %b
++.B hds
+ Generate the path priority for Hitachi HDS Modular storage arrays.
+ .TP
+-Default value is \fBnone\fR.
++Default value is \fBconst\fR.
+ .RE
+ .TP
+ .B features
+@@ -203,13 +229,26 @@ Default value is \fIreadsector0\fR.
+ .RE
+ .TP
+ .B failback
+-Tell the daemon to manage path group failback, or not to. 0 or
+-.I immediate
+-means immediate failback, values >0 means deferred failback (in
+-seconds).
+-.I manual
+-means no failback. Default value is
+-.I manual
++Tell multipathd how to manage path group failback.
++.RS
++.TP 12
++.B immediate
++Immediately failback to the highest priority pathgroup that contains
++active paths.
++.TP
++.B manual
++Do not perform automatic failback.
++.TP
++.B followover
++Only perform automatic failback when the first path of a pathgroup
++becomes active. This keeps a node from automatically failing back when
++another node requested the failover.
++.TP
++.B values > 0
++deferred failback (time to defer in seconds)
++.TP
++Default value is \fImanual\fR.
++.RE
+ .TP
+ .B  rr_min_io
+ The number of IO to route to a path before switching to the next in
+@@ -245,6 +284,20 @@ be overriden by any specific aliases in 
+ Default is
+ .I no
+ .TP
++.B queue_without_daemon
++If set to
++.I no
++, multipathd will disable queueing for all devices when it is shut down.
++Default is
++.I yes
++.TP
++.B flush_on_last_del
++If set to
++.I yes
++, multipathd will disable queueing when the last path to a device has been
++deleted. Default is
++.I no
++.TP
+ .B max_fds
+ Specify the maximum number of file descriptors that can be opened by multipath
+ and multipathd.  This is equivalent to ulimit -n. A value of \fImax\fR will set
+@@ -253,6 +306,11 @@ maximum number of open fds is taken from
+ 1024. To be safe, this should be set to the maximum number of paths plus 32,
+ if that number is greated than 1024.
+ .TP
++.B checker_timeout
++Specify the timeout to user for path checkers that issue scsi commands with an
++explict timeout, in seconds; default taken from
++.I /sys/block/sd<x>/device/timeout
++.TP
+ .B fast_io_fail_tmo
+ Specify the number of seconds the scsi layer will wait after a problem has been
+ detected on a FC remote port before failing IO to devices on that remote port.
+@@ -263,6 +321,18 @@ will disable the timeout.
+ .B dev_loss_tmo
+ Specify the number of seconds the scsi layer will wait after a problem has
+ been detected on a FC remote port before removing it from the system.
++.TP
++.B mode
++The mode to use for the multipath device nodes, in octal; default determined
++by the process
++.TP
++.B uid
++The user id to use for the multipath device nodes. You may use either the
++numeric or symbolic uid; default determined by the process.
++.TP
++.B gid
++The group id to use for the mutipath device nodes. You may use either the
++numeric or symbolic gid; default determined by the process.
+ .
+ .SH "blacklist section"
+ The
+@@ -345,9 +415,21 @@ section:
+ .TP
+ .B failback
+ .TP
++.B prio
++.TP
+ .B no_path_retry
+ .TP
+ .B rr_min_io
++.TP
++.B rr_weight
++.TP
++.B flush_on_last_del
++.TP
++.B mode
++.TP
++.B uid
++.TP
++.B gid
+ .RE
+ .PD
+ .LP
+@@ -368,6 +450,9 @@ subsection recognizes the following attr
+ .B product
+ (Mandatory) Product identifier
+ .TP
++.B revision
++Revision identifier
++.TP
+ .B product_blacklist
+ Product strings to blacklist for this vendor
+ .TP
+@@ -378,6 +463,15 @@ The following hardware handler are imple
+ .TP 12
+ .B 1 emc
+ Hardware handler for EMC storage arrays.
++.TP
++.B 1 alua
++Hardware handler for SCSI-3 ALUA arrays.
++.TP
++.B 1 hp_sw
++Hardware handler for Compaq/HP controllers.
++.TP
++.B 1 rdac
++Hardware handler for the LSI/Engenio RDAC controllers.
+ .RE
+ .LP
+ The following attributes are optional; if not set the default values
+@@ -398,7 +492,7 @@ section:
+ .TP
+ .B features
+ .TP
+-.B prio_callout
++.B prio
+ .TP
+ .B failback
+ .TP
+@@ -411,6 +505,8 @@ section:
+ .B fast_io_fail_tmo
+ .TP
+ .B dev_loss_tmo
++.TP
++.B flush_on_last_del
+ .RE
+ .PD
+ .LP

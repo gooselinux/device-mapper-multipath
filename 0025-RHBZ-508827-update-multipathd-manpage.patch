@@ -1,0 +1,68 @@
+Index: multipath-tools/multipathd/multipathd.8
+===================================================================
+--- multipath-tools.orig/multipathd/multipathd.8
++++ multipath-tools/multipathd/multipathd.8
+@@ -35,9 +35,20 @@ The following commands can be used in in
+ .B list|show paths
+ Show the paths that multipathd is monitoring, and their state. 
+ .TP
++.B list|show paths format $format
++Show the paths that multipathd is monitoring, using a format string with path
++format wildcards.
++.TP
++.B list|show status
++Show the number of monitored paths in each path checker state.
++.TP
+ .B list|show maps|multipaths
+ Show the multipath devices that the multipathd is monitoring. 
+ .TP
++.B list|show maps|multipaths format $format
++Show the status of all multipath devices that the multipathd is monitoring,
++using a format string with multipath format wildcards.
++.TP
+ .B list|show maps|multipaths status
+ Show the status of all multipath devices that the multipathd is monitoring.
+ .TP
+@@ -54,6 +65,9 @@ Show the current multipath topology. Sam
+ Show topology of a single multipath device specified by $map, e.g. 36005076303ffc56200000000000010aa.
+ This map could be obtained from "list maps".
+ .TP
++.B list|show wildcards
++Show the format wildcards used in interactive commands taking $format
++.TP
+ .B list|show config
+ Show the currently used configuration, derived from default values and values specified within the configuration file /etc/multipath.conf.
+ .TP
+@@ -69,6 +83,10 @@ Add a path to the list of monitored path
+ .B remove|del path $path
+ Stop monitoring a path. $path is as listed in /sys/block (e.g. sda).
+ .TP
++.B paths count
++Show the number of monitored paths, and whether multipathd is currently
++handeling a uevent.
++.TP
+ .B add map $map
+ Add a multipath device to the list of monitored devices. $map can either be a device-mapper device as listed in /sys/block (e.g. dm-0) or it can be the alias for the multipath device (e.g. mpath1) or the uid of the multipath device (e.g. 36005076303ffc56200000000000010aa). 
+ .TP
+@@ -96,11 +114,20 @@ Sets path $path into failed state.
+ .B reinstate path $path
+ Resumes path $path from failed state.
+ .TP
++.B disablequeueing maps|multipaths
++Disable queueing on all multipath devices.
++.TP
++.B restorequeueing maps|multipaths
++Restore queueing on all multipath devices.
++.TP
+ .B disablequeueing map|multipath $map
+-Disabled queuing on multipathed map $map
++Disable queuing on multipathed map $map
+ .TP
+ .B restorequeueing map|multipath $map
+ Restore queuing on multipahted map $map
++.TP
++.B quit|exit
++End interactive session.
+ 
+ .SH "SEE ALSO"
+ .BR multipath (8)

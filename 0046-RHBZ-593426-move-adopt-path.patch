@@ -1,0 +1,24 @@
+---
+ libmultipath/structs_vec.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: multipath-tools/libmultipath/structs_vec.c
+===================================================================
+--- multipath-tools.orig/libmultipath/structs_vec.c
++++ multipath-tools/libmultipath/structs_vec.c
+@@ -355,7 +355,6 @@ retry:
+ 		goto out;
+ 	}
+ 
+-	adopt_paths(vecs->pathvec, mpp);
+ 	if (!mpp->hwe)
+ 		mpp->hwe = extract_hwe_from_path(mpp);
+ 	if (!mpp->hwe) {
+@@ -498,6 +497,7 @@ int update_multipath (struct vectors *ve
+ 	if (setup_multipath(vecs, mpp))
+ 		return 1; /* mpp freed in setup_multipath */
+ 
++	adopt_paths(vecs->pathvec, mpp);
+ 	/*
+ 	 * compare checkers states with DM states
+ 	 */

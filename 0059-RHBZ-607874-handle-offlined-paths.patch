@@ -1,0 +1,68 @@
+---
+ libmultipath/discovery.c |    9 +++++++--
+ multipathd/main.c        |   13 ++++++++++---
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+Index: multipath-tools/libmultipath/discovery.c
+===================================================================
+--- multipath-tools.orig/libmultipath/discovery.c
++++ multipath-tools/libmultipath/discovery.c
+@@ -794,8 +794,13 @@ get_state (struct path * pp, int daemon)
+ 	condlog(3, "%s: get_state", pp->dev);
+ 
+ 	if (!checker_selected(c)) {
+-		if (daemon)
+-			pathinfo(pp, conf->hwtable, DI_SYSFS);
++		if (daemon || pp->sysdev == NULL) {
++			if (pathinfo(pp, conf->hwtable, DI_SYSFS) != 0) {
++				condlog(3, "%s: couldn't get sysfs pathinfo",
++					pp->dev);
++				return PATH_UNCHECKED;
++			}
++		}
+ 		select_checker(pp);
+ 		if (!checker_selected(c)) {
+ 			condlog(3, "%s: No checker selected", pp->dev);
+Index: multipath-tools/multipathd/main.c
+===================================================================
+--- multipath-tools.orig/multipathd/main.c
++++ multipath-tools/multipathd/main.c
+@@ -365,6 +365,7 @@ ev_add_path (char * devname, struct vect
+ 	struct multipath * mpp;
+ 	struct path * pp;
+ 	char empty_buff[WWID_SIZE] = {0};
++	int retries = 3;
+ 
+ 	if (strstr(devname, "..") != NULL) {
+ 		/*
+@@ -450,12 +451,14 @@ rescan:
+ 		/*
+ 		 * deal with asynchronous uevents :((
+ 		 */
+-		if (mpp->action == ACT_RELOAD) {
++		if (mpp->action == ACT_RELOAD && retries-- > 0) {
+ 			condlog(0, "%s: uev_add_path sleep", mpp->alias);
+ 			sleep(1);
+ 			update_mpp_paths(mpp, vecs->pathvec);
+ 			goto rescan;
+ 		}
++		else if (mpp->action == ACT_RELOAD)
++			condlog(0, "%s: giving up reload", mpp->alias);
+ 		else
+ 			goto fail_map;
+ 	}
+@@ -473,8 +476,12 @@ rescan:
+ 	    start_waiter_thread(mpp, vecs))
+ 			goto fail_map;
+ 
+-	condlog(2, "%s path added to devmap %s", devname, mpp->alias);
+-	return 0;
++	if (retries > 0) {
++		condlog(2, "%s path added to devmap %s", devname, mpp->alias);
++		return 0;
++	}
++	else
++		return 1;
+ 
+ fail_map:
+ 	remove_map(mpp, vecs, 1);

@@ -1,0 +1,16 @@
+---
+ multipath/main.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: multipath-tools/multipath/main.c
+===================================================================
+--- multipath-tools.orig/multipath/main.c
++++ multipath-tools/multipath/main.c
+@@ -203,6 +203,7 @@ get_dm_mpvec (vector curmp, vector pathv
+ 
+ 		if (!conf->dry_run)
+ 			reinstate_paths(mpp);
++		remember_wwid(mpp->wwid);
+ 	}
+ 	return 0;
+ }

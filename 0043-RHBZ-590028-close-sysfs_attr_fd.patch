@@ -1,0 +1,16 @@
+---
+ libmultipath/sysfs.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: multipath-tools/libmultipath/sysfs.c
+===================================================================
+--- multipath-tools.orig/libmultipath/sysfs.c
++++ multipath-tools/libmultipath/sysfs.c
+@@ -407,6 +407,7 @@ sysfs_attr_set_value(const char *devpath
+ 		    path_full, ret);
+ 		ret = -1;
+ 	}
++	close(fd);
+ out:
+ 	return ret;
+ }

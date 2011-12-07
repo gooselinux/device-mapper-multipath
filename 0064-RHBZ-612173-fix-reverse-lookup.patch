@@ -1,0 +1,13 @@
+Index: multipath-tools/libmultipath/alias.c
+===================================================================
+--- multipath-tools.orig/libmultipath/alias.c
++++ multipath-tools/libmultipath/alias.c
+@@ -141,7 +141,7 @@ rlookup_binding(FILE *f, char **map_wwid
+ 		curr_id = scan_devname(alias);
+ 		if (curr_id >= id)
+ 			id = curr_id + 1;
+-		wwid = strtok(NULL, " \t");
++		wwid = strtok(NULL, "");
+ 		if (!wwid){
+ 			condlog(3,
+ 				"Ignoring malformed line %u in bindings file",

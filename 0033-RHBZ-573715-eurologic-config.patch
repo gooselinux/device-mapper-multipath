@@ -1,0 +1,53 @@
+---
+ libmultipath/hwtable.c  |   15 +++++++++++++++
+ multipath.conf.defaults |   13 +++++++++++++
+ 2 files changed, 28 insertions(+)
+
+Index: multipath-tools/libmultipath/hwtable.c
+===================================================================
+--- multipath-tools.orig/libmultipath/hwtable.c
++++ multipath-tools/libmultipath/hwtable.c
+@@ -990,6 +990,21 @@ static struct hwentry default_hw[] = {
+ 		.checker_name  = RDAC,
+ 		.prio_name     = PRIO_RDAC,
+ 	},
++	{
++		.vendor        = "EUROLOGC",
++		.product       = "FC2502",
++		.getuid        ="/lib/udev/scsi_id --page=0x80 --whitelisted --device=/dev/%n",
++		.features      = DEFAULT_FEATURES,
++		.hwhandler     = DEFAULT_HWHANDLER,
++		.selector      = DEFAULT_SELECTOR,
++		.pgpolicy      = GROUP_BY_PRIO,
++		.pgfailback    = FAILBACK_UNDEF,
++		.rr_weight     = RR_WEIGHT_NONE,
++		.no_path_retry = NO_PATH_RETRY_UNDEF,
++		.minio         = DEFAULT_MINIO,
++		.checker_name  = DEFAULT_CHECKER,
++		.prio_name     = DEFAULT_PRIO,
++	},
+ 	/*
+ 	 * EOL
+ 	 */
+Index: multipath-tools/multipath.conf.defaults
+===================================================================
+--- multipath-tools.orig/multipath.conf.defaults
++++ multipath-tools/multipath.conf.defaults
+@@ -602,4 +602,17 @@
+ #		path_checker		rdac
+ #		prio			rdac
+ #	}
++#	device {
++#		vendor			"EUROLOGC"
++#		product			"FC2502"
++#		getuid_callout		"/lib/udev/scsi_id --page=0x80 --whitelisted --device=/dev/%n"
++#		features                "0"
++#		hardware_handler        "0"
++#		path_selector           "round-robin 0"
++#		path_grouping_policy    group_by_prio
++#		rr_weight               uniform
++#		rr_min_io               1000
++#		path_checker		directio
++#		prio			const
++#	}
+ #}

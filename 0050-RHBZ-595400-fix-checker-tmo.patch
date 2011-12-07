@@ -1,0 +1,17 @@
+---
+ libmultipath/discovery.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: multipath-tools/libmultipath/discovery.c
+===================================================================
+--- multipath-tools.orig/libmultipath/discovery.c
++++ multipath-tools/libmultipath/discovery.c
+@@ -174,7 +174,7 @@ sysfs_get_timeout(struct sysfs_device *d
+ 	if (safe_sprintf(attr_path, "%s/device", dev->devpath))
+ 		return 1;
+ 
+-	attr = sysfs_attr_get_value(dev->devpath, "timeout");
++	attr = sysfs_attr_get_value(attr_path, "timeout");
+ 	if (!attr)
+ 		return 1;
+ 
