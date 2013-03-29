@@ -1,7 +1,7 @@
 Summary: Tools to manage multipath devices using device-mapper
 Name: device-mapper-multipath
 Version: 0.4.9
-Release: 31%{?dist}.2
+Release: 31%{?dist}.3
 License: GPL+
 Group: System Environment/Base
 URL: http://christophe.varoqui.free.fr/
@@ -79,6 +79,7 @@ Patch1063: 0063-RHBZ-595719-udev_link_priority.patch
 Patch1064: 0064-RHBZ-612173-fix-reverse-lookup.patch
 Patch1065: 0065-RHBZ-635088-update-priority.patch
 Patch1066: 0066-RHBZ-672151-fix-sysfs-caching.patch
+Patch1067: 0067-RHBZ-684684-sysfs-device-cleanup.patch
 
 # runtime
 Requires: %{name}-libs = %{version}-%{release}
@@ -191,6 +192,7 @@ kpartx manages partition creation and removal for device-mapper devices.
 %patch1064 -p1
 %patch1065 -p1
 %patch1066 -p1
+%patch1067 -p1
 cp %{SOURCE1} .
 
 %build
@@ -269,6 +271,12 @@ fi
 %{_mandir}/man8/kpartx.8.gz
 
 %changelog
+* Mon Mar 14 2011 Benjamin Marzinski <bmarizns@redhat.com> -0.4.9.31.el6_0.3
+- Add 0067-RHBZ-684684-sysfs-device-cleanup.patch
+   * Make sure to remove the sysfs device from cache when the path is
+     removed. Also, only search the sysfs device cache under the vecs lock
+- Resolves: bz #684684
+
 * Wed Jan 26 2011 Benjamin Marzinski <bmarizns@redhat.com> -0.4.9.31.el6_0.2
 - Add 0066-RHBZ-672151-fix-sysfs-caching.patch
     * Remove attribute value caching, and free cached parent devices on remove

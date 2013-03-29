@@ -1,0 +1,92 @@
+---
+ multipathd/cli_handlers.c |    2 +-
+ multipathd/main.c         |   20 +++++++++++++-------
+ multipathd/main.h         |    2 +-
+ 3 files changed, 15 insertions(+), 9 deletions(-)
+
+Index: multipath-tools-681144/multipathd/cli_handlers.c
+===================================================================
+--- multipath-tools-681144.orig/multipathd/cli_handlers.c
++++ multipath-tools-681144/multipathd/cli_handlers.c
+@@ -416,7 +416,7 @@ cli_del_path (void * v, char ** reply, i
+ 
+ 	condlog(2, "%s: remove path (operator)", param);
+ 
+-	return ev_remove_path(param, vecs);
++	return ev_remove_path(param, vecs, NULL);
+ }
+ 
+ int
+Index: multipath-tools-681144/multipathd/main.c
+===================================================================
+--- multipath-tools-681144.orig/multipathd/main.c
++++ multipath-tools-681144/multipathd/main.c
+@@ -492,23 +492,25 @@ fail:
+ static int
+ uev_remove_path (struct sysfs_device * dev, struct vectors * vecs)
+ {
+-	int retval;
++	int retval, del_sysdev;
+ 
+ 	condlog(2, "%s: remove path (uevent)", dev->kernel);
+-	retval = ev_remove_path(dev->kernel, vecs);
+-	if (!retval)
++	retval = ev_remove_path(dev->kernel, vecs, &del_sysdev);
++	if (del_sysdev)
+ 		sysfs_device_put(dev);
+ 
+ 	return retval;
+ }
+ 
+ int
+-ev_remove_path (char * devname, struct vectors * vecs)
++ev_remove_path (char * devname, struct vectors * vecs, int *del_sysdev)
+ {
+ 	struct multipath * mpp;
+ 	struct path * pp;
+ 	int i, retval = 0;
+ 
++	if (del_sysdev)
++		*del_sysdev = 0;
+ 	pp = find_path_by_dev(vecs->pathvec, devname);
+ 
+ 	if (!pp) {
+@@ -595,6 +597,10 @@ out:
+ 	if ((i = find_slot(vecs->pathvec, (void *)pp)) != -1)
+ 		vector_del_slot(vecs->pathvec, i);
+ 
++	if (pp->sysdev)
++		sysfs_device_put(pp->sysdev);
++	else if (del_sysdev)
++		*del_sysdev = 1;
+ 	free_path(pp);
+ 
+ 	return retval;
+@@ -685,11 +691,11 @@ uev_trigger (struct uevent * uev, void *
+ 	if (uev_discard(uev->devpath))
+ 		return 0;
+ 
++	lock(vecs->lock);
++
+ 	sysdev = sysfs_device_get(uev->devpath);
+ 	if(!sysdev)
+-		return 0;
+-
+-	lock(vecs->lock);
++		goto out;
+ 
+ 	/*
+ 	 * device map event
+Index: multipath-tools-681144/multipathd/main.h
+===================================================================
+--- multipath-tools-681144.orig/multipathd/main.h
++++ multipath-tools-681144/multipathd/main.h
+@@ -5,7 +5,7 @@
+ 
+ int reconfigure (struct vectors *);
+ int ev_add_path (char *, struct vectors *);
+-int ev_remove_path (char *, struct vectors *);
++int ev_remove_path (char *, struct vectors *, int *);
+ int ev_add_map (struct sysfs_device *, struct vectors *);
+ int ev_remove_map (char *, struct vectors *);
+ void sync_map_state (struct multipath *);
