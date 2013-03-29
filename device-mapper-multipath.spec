@@ -1,7 +1,7 @@
 Summary: Tools to manage multipath devices using device-mapper
 Name: device-mapper-multipath
 Version: 0.4.9
-Release: 31%{?dist}.1
+Release: 31%{?dist}.2
 License: GPL+
 Group: System Environment/Base
 URL: http://christophe.varoqui.free.fr/
@@ -78,6 +78,7 @@ Patch1062: 0062-RHBZ-592998-hpsc-config.patch
 Patch1063: 0063-RHBZ-595719-udev_link_priority.patch
 Patch1064: 0064-RHBZ-612173-fix-reverse-lookup.patch
 Patch1065: 0065-RHBZ-635088-update-priority.patch
+Patch1066: 0066-RHBZ-672151-fix-sysfs-caching.patch
 
 # runtime
 Requires: %{name}-libs = %{version}-%{release}
@@ -189,6 +190,7 @@ kpartx manages partition creation and removal for device-mapper devices.
 %patch1063 -p1
 %patch1064 -p1
 %patch1065 -p1
+%patch1066 -p1
 cp %{SOURCE1} .
 
 %build
@@ -267,6 +269,11 @@ fi
 %{_mandir}/man8/kpartx.8.gz
 
 %changelog
+* Wed Jan 26 2011 Benjamin Marzinski <bmarizns@redhat.com> -0.4.9.31.el6_0.2
+- Add 0066-RHBZ-672151-fix-sysfs-caching.patch
+    * Remove attribute value caching, and free cached parent devices on remove
+- Resolves: bz #672151
+
 * Fri Dec  3 2010 Benjamin Marzinski <bmarzins@redhat.com> -0.4.9.31.el6_0.1
 - Add 0065-RHBZ-635088-update-priority.patch
     * refresh all priorities when a new path comes online
