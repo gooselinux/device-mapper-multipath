@@ -1,7 +1,7 @@
 Summary: Tools to manage multipath devices using device-mapper
 Name: device-mapper-multipath
 Version: 0.4.9
-Release: 31%{?dist}
+Release: 31%{?dist}.1
 License: GPL+
 Group: System Environment/Base
 URL: http://christophe.varoqui.free.fr/
@@ -77,6 +77,7 @@ Patch1061: 0061-RHBZ-620479-find-rport.patch
 Patch1062: 0062-RHBZ-592998-hpsc-config.patch
 Patch1063: 0063-RHBZ-595719-udev_link_priority.patch
 Patch1064: 0064-RHBZ-612173-fix-reverse-lookup.patch
+Patch1065: 0065-RHBZ-635088-update-priority.patch
 
 # runtime
 Requires: %{name}-libs = %{version}-%{release}
@@ -187,6 +188,7 @@ kpartx manages partition creation and removal for device-mapper devices.
 %patch1062 -p1
 %patch1063 -p1
 %patch1064 -p1
+%patch1065 -p1
 cp %{SOURCE1} .
 
 %build
@@ -265,6 +267,11 @@ fi
 %{_mandir}/man8/kpartx.8.gz
 
 %changelog
+* Fri Dec  3 2010 Benjamin Marzinski <bmarzins@redhat.com> -0.4.9.31.el6_0.1
+- Add 0065-RHBZ-635088-update-priority.patch
+    * refresh all priorities when a new path comes online
+- Resolves: bz #658937
+
 * Tue Sep  7 2010 Benjamin Marzinski <bmarzins@redhat.com> -0.4.9.31
 - Modify 0063-RHBZ-595719-udev_link_priority.patch
     * make link_priority only work on multipath devices and partitions.
