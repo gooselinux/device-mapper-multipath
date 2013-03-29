@@ -1,7 +1,7 @@
 Summary: Tools to manage multipath devices using device-mapper
 Name: device-mapper-multipath
 Version: 0.4.9
-Release: 31%{?dist}.3
+Release: 31%{?dist}.5
 License: GPL+
 Group: System Environment/Base
 URL: http://christophe.varoqui.free.fr/
@@ -80,6 +80,8 @@ Patch1064: 0064-RHBZ-612173-fix-reverse-lookup.patch
 Patch1065: 0065-RHBZ-635088-update-priority.patch
 Patch1066: 0066-RHBZ-672151-fix-sysfs-caching.patch
 Patch1067: 0067-RHBZ-684684-sysfs-device-cleanup.patch
+Patch1068: 0068-RHBZ-696133-fix-offline-check.patch
+Patch1069: 0069-RHBZ-702402-fix-prio-segfault.patch
 
 # runtime
 Requires: %{name}-libs = %{version}-%{release}
@@ -193,6 +195,8 @@ kpartx manages partition creation and removal for device-mapper devices.
 %patch1065 -p1
 %patch1066 -p1
 %patch1067 -p1
+%patch1068 -p1
+%patch1069 -p1
 cp %{SOURCE1} .
 
 %build
@@ -271,6 +275,19 @@ fi
 %{_mandir}/man8/kpartx.8.gz
 
 %changelog
+* Sun May  8 2011 Benjamin Marzinski <bmarizns@redhat.com> -0.4.9.31.el6_0.5
+- Add 0069-RHBZ-702402-fix-prio-segfault.patch
+   * Don't reuse the the path argument as a variable in the vector
+     loop.
+- Resolves: bz #702402
+
+* Wed Apr 13 2011 Benjamin Marzinski <bmarizns@redhat.com> -0.4.9.31.el6_0.4
+- Add 0068-RHBZ-696133-fix-offline-check.patch
+   * Make path_offline return false if it can't deterime a paths state. and
+     don't check the path if it has no sysdev, since it is about to be
+     removed
+- Resolves: bz #696133
+
 * Mon Mar 14 2011 Benjamin Marzinski <bmarizns@redhat.com> -0.4.9.31.el6_0.3
 - Add 0067-RHBZ-684684-sysfs-device-cleanup.patch
    * Make sure to remove the sysfs device from cache when the path is
